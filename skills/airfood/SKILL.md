@@ -33,3 +33,15 @@ Base URL: `http://localhost:8000` (override with `AIRFOOD_BASE_URL`). Interactiv
 - "Any soup?" → filter meals whose `category` or `name` contains "soup"/"Suppe".
 
 Notes: weeks are a rolling set (current/upcoming only; unknown week → 422). Dish names embed the ingredient text after `|` — the portal exposes no structured ingredient list. A store with no data returns `{"days": []}`.
+
+## Install / use
+
+OpenCode (agent CLI):
+
+```sh
+npx skills add /path/to/AirFood/skills/airfood        # or: cp -r skills/airfood ~/.config/opencode/skills/
+```
+
+Then just ask: "What's on the menu at Airbus today?" or "Recommend a vegetarian dish at ZAL".
+
+Gemini web: Gemini has no native skill loader — create a **Gem** (gemini.google.com → Gems → New Gem), paste this SKILL.md into its instructions, and set the API base URL in the Gem (default `http://localhost:8000`; if the API runs elsewhere, tell the Gem the URL or set `AIRFOOD_BASE_URL` in its instructions). Then chat with the Gem: "What's for lunch at the Casino today?". In Google AI Studio / Gemini API, attach `SKILL.md` as a context file instead.

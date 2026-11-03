@@ -1,0 +1,17 @@
+[project]
+name = "airfood"
+version = "0.1.0"
+description = "Read menu data from the Aramark Catering Portal"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "playwright>=1.56",
+    "uvicorn>=0.34",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

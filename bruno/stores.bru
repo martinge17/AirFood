@@ -1,0 +1,22 @@
+meta {
+  name: List stores
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/stores
+  body: none
+  auth: none
+}
+
+tests {
+  test("menu stores are listed", function() {
+    expect(res.status).to.equal(200);
+    expect(res.getBody().some(store => store.name === "Airbus Finkenwerder")).to.equal(true);
+  });
+}
+
+settings {
+  encodeUrl: true
+}

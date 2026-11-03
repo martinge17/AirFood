@@ -1,0 +1,24 @@
+meta {
+  name: One menu day
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/menu?store={{store}}&week={{week}}&day={{day}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("requested weekday is returned", function() {
+    const body = res.getBody();
+    expect(res.status).to.equal(200);
+    expect(body.days).to.have.length(1);
+    expect(body.days[0].weekday).to.equal("Tuesday");
+  });
+}
+
+settings {
+  encodeUrl: true
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Current menu week
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/menu?store={{store}}&week={{week}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("menu week contains days and meal fields", function() {
+    const body = res.getBody();
+    expect(res.status).to.equal(200);
+    expect(body.days).to.be.an("array").that.is.not.empty;
+    expect(body.days[0].meals[0]).to.have.property("name");
+    expect(body.days[0].meals[0]).to.have.property("image_url");
+  });
+}
+
+settings {
+  encodeUrl: true
+}

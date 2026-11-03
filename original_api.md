@@ -65,7 +65,7 @@ The scraper returns these fields for each dish: `name`, `category`, `price`, `cu
 - `GET /api/menu?store=Airbus%20Finkenwerder&week=45` scrapes all selectable days for that available week. `day=Tuesday` filters to one day; omitted `store` defaults to Airbus Finkenwerder.
 - Week availability is controlled by the live portal selector (currently a rolling set, not arbitrary historical weeks). Disabled/past day tabs are omitted. Invalid store/day/week selections return a client error; portal/browser failures return 502.
 - The `week` output is the portal label (`CW: 45`), and day labels are portal display labels; they are not guaranteed to include a year.
-- The service has two backends: `backend=browser` renders the SPA in a remote headless browser (Obscura via CDP in `compose.yaml`, JS-driven clicks because Obscura's layout engine reports width=0 for some elements), and `backend=http` uses only the plain-HTTP Firestore chain above. Both return identical fields; the HTTP path is faster and needs no browser image. DOM selectors may need updating if the portal UI changes.
+- This service uses only the plain-HTTP Firestore chain above (no browser). The earlier browser-scraping variant (Playwright over CDP, Obscura) is kept in the nested repo `browser-api/`; both returned identical fields.
 
 ## Scraping implications
 

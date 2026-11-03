@@ -1,19 +1,5 @@
-# Both services run on the host network: Obscura v0.2.6 binds CDP to loopback inside
-# its netns (--host 0.0.0.0 is ignored), so a bridge port mapping cannot reach it.
 services:
   api:
     build: .
-    network_mode: host
-    environment:
-      BROWSER_WS: ws://127.0.0.1:9222
-      BROWSER_WS_TOKEN: ${BROWSER_WS_TOKEN:-airfood-dev-token-0123456789abcdef}
-    depends_on:
-      - browser
-
-  # Remote rendering for the Angular SPA; keeps browser libs out of the API image.
-  browser:
-    image: h4ckf0r0day/obscura:latest
-    network_mode: host
-    environment:
-      OBSCURA_CDP_TOKEN: ${BROWSER_WS_TOKEN:-airfood-dev-token-0123456789abcdef}
-    command: serve --port 9222
+    ports:
+      - "8000:8000"

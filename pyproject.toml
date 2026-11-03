@@ -5,7 +5,7 @@ description = "Read menu data from the Aramark Catering Portal"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "playwright>=1.56",
+    "tzdata>=2025.1",  # chainguard distroless ships no system tzdata
     "uvicorn>=0.34",
 ]
 

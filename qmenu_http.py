@@ -21,8 +21,6 @@ import urllib.request
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
-from scraper import ScrapeError, _day_name
-
 QNIPS_BASE = "https://apps-live-eu.qnips.com/cons/api"
 FIRESTORE_BASE = (
     "https://firestore.googleapis.com/v1"
@@ -33,6 +31,49 @@ FIREBASE_API_KEY = "AIzaSyBC7KHOACAPWb0DwSceR3ZdoO-BUMfgoSw"
 QNIPS_AUTH_HEADER = os.environ.get("QNIPS_AUTH_HEADER", "007774ebf508aa88e44eab2baf833ae97c")
 QNIPS_BRAND = os.environ.get("QNIPS_BRAND", "aramark")
 LANGUAGE = "en-US"
+
+STORES = {
+    store["name"]: store
+    for store in (
+        {"name": "Airbus Finkenwerder", "menu": "Casino HH-Finkenwerder"},
+        {"name": "Betriebsrestaurant Fuhlsbüttel", "menu": "Betriebsrestaurant HH-Fuhlsbüttel"},
+        {"name": "Bistro Halle 9", "menu": "Bistro Halle 9"},
+        {"name": "Casino", "menu": "Casino HH-Finkenwerder"},
+        {"name": "Elbblick", "menu": "Elbblick HH-Finkenwerder"},
+        {"name": "Kantine Hs. 18", "menu": "Kantine Hs. 18, HH-Finkenwerder"},
+        {"name": "Marché", "menu": "Marché HH-Finkenwerder"},
+        {"name": "Sharklet Hs. 100", "menu": "Sharklet Hs.100, Daily Menu"},
+        {"name": "TUHH", "menu": "Airbus TU"},
+        {"name": "ZAL TechCenter", "menu": "ZAL TechCenter"},
+    )
+}
+
+DAY_NAMES = {
+    "mon": "Monday", "monday": "Monday",
+    "tue": "Tuesday", "tues": "Tuesday", "tuesday": "Tuesday",
+    "wed": "Wednesday", "wednesday": "Wednesday",
+    "thu": "Thursday", "thur": "Thursday", "thurs": "Thursday", "thursday": "Thursday",
+    "fri": "Friday", "friday": "Friday",
+    "sat": "Saturday", "saturday": "Saturday",
+    "sun": "Sunday", "sunday": "Sunday",
+}
+
+
+class ScrapeError(Exception):
+    pass
+
+
+def normalize_day(day: str) -> str:
+    normalized = DAY_NAMES.get(day.strip().lower())
+    if not normalized:
+        raise ValueError("day must be a weekday name, e.g. Tuesday")
+    return normalized
+
+
+def _day_name(label: str) -> str | None:
+    match = re.match(r"([A-Za-z]+)", label.strip())
+    return DAY_NAMES.get(match.group(1).lower()) if match else None
+
 
 _token = {"value": None, "expires": 0}
 _menu_ids = {"value": None, "expires": 0}

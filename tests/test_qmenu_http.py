@@ -3,7 +3,7 @@ import json
 import pytest
 
 import qmenu_http
-from scraper import ScrapeError
+from qmenu_http import ScrapeError
 
 
 def fs_str(value):

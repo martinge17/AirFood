@@ -1,52 +1,29 @@
 # AirFood
 
-FastAPI service that reads the live Aramark menu. Two interchangeable backends:
+FastAPI service that serves the live Aramark menu over **plain HTTP only** — no browser.
+It uses the reverse-engineered request chain of the catering portal (Qnips `FirebaseInfo`
+→ Firebase custom-token sign-in → Firestore REST v1), implemented in `qmenu_http.py`.
+Details of the reverse engineering: [`original_api.md`](original_api.md).
 
-- `backend=browser` (default): renders the portal in a remote headless browser (Obscura via CDP, see `compose.yaml`)
-- `backend=http`: plain HTTP only, using the reverse-engineered Qnips/Firebase request chain (`qmenu_http.py`) — no browser needed
+The older browser-based variant (Playwright/Obscura scraping the SPA) lives in the
+nested repo [`browser-api/`](browser-api/).
 
-Menu options and the reverse-engineered source behavior are documented in [`original_api.md`](original_api.md).
+An agent skill for querying this API ("what's on the menu", recommendations) is in
+[`skills/airfood/SKILL.md`](skills/airfood/SKILL.md).
 
-## Run with Docker Compose (API + browser service)
-
-```sh
-docker compose up -d --build
-```
-
-API on <http://localhost:8000/docs>. Both services use the host network because Obscura v0.2.6 binds CDP to loopback inside its netns. Set `BROWSER_WS_TOKEN` to change the shared CDP token (default is a dev token).
-
-## Run standalone (local Chromium)
+## Run
 
 ```sh
-docker build -t airfood .
-docker run --rm -p 8000:8000 -e AIRFOOD_BACKEND=http airfood   # HTTP backend, no browser at all
-docker run --rm -p 8000:8000 airfood                            # browser backend, needs local Chromium
+docker compose up -d --build     # distroless Chainguard image, API on :8000
+# or: docker build -t airfood . && docker run --rm -p 8000:8000 airfood
 ```
 
-## Run locally
-
-```sh
-uv sync
-uv run playwright install chromium   # only for backend=browser
-uv run uvicorn main:app --reload
-```
+Local: `uv sync && uv run uvicorn main:app --reload`. Docs at <http://localhost:8000/docs>.
 
 ## API
 
-- `GET /api/stores` — menu-enabled stores
-- `GET /api/menu?store=Airbus%20Finkenwerder&week=45` — all enabled days in an available portal week
-- Add `&day=Tuesday` to filter to one weekday, `&backend=http` to use the HTTP-only path
-- `GET /health` — health check
+- `GET /health`
+- `GET /api/stores` — the 10 menu stores
+- `GET /api/menu?store=Airbus%20Finkenwerder&week=45&day=Tuesday` — week and day optional
 
-The portal only offers a rolling set of weeks and disables past days. Scraped ingredient-like text remains part of the dish name because the portal does not expose it as a structured ingredient list.
-
-## Bruno
-
-With the API running, execute the requests in the collection:
-
-```sh
-cd bruno
-npx @usebruno/cli run -r --env local
-```
-
-Run checks with `uv run pytest`.
+Checks: `uv run pytest`. Bruno collection in `bruno/` (`cd bruno && npx @usebruno/cli run -r --env local`).

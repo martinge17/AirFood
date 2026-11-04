@@ -23,8 +23,8 @@ The portal allows users to choose a store, week, and day, and displays meal deta
 
 ## Current API
 
-- `GET /stores` lists menu-enabled store choices.
-- `GET /menu?store=Airbus%20Finkenwerder&week=45` returns all enabled days for a portal-available calendar week.
+- `GET /api/stores` lists menu-enabled store choices.
+- `GET /api/menu?store=Airbus%20Finkenwerder&week=45` returns all enabled days for a portal-available calendar week.
 - Add `&day=Tuesday` to return one weekday. The portal controls which weeks and days are currently selectable.
 - `GET /docs` provides interactive OpenAPI documentation.
 

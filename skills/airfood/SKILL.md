@@ -9,8 +9,8 @@ Base URL: `http://localhost:8000` (override with `AIRFOOD_BASE_URL`). Interactiv
 
 ## Endpoints
 
-- `GET /stores` — list of the 10 menu stores (`name`, `menu`).
-- `GET /menu?store=<name>&week=<1-53>&day=<Weekday>` — menu JSON. All params optional; defaults: store `Airbus Finkenwerder`, current ISO week, all remaining days of that week (past days are omitted by the source).
+- `GET /api/stores` — list of the 10 menu stores (`name`, `menu`).
+- `GET /api/menu?store=<name>&week=<1-53>&day=<Weekday>` — menu JSON. All params optional; defaults: store `Airbus Finkenwerder`, current ISO week, all remaining days of that week (past days are omitted by the source).
 - `GET /health`
 
 ## Response shape
@@ -27,8 +27,8 @@ Base URL: `http://localhost:8000` (override with `AIRFOOD_BASE_URL`). Interactiv
 
 ## Typical questions
 
-- "What's the menu today?" → `GET /menu?store=Airbus Finkenwerder&day=<today's weekday>`, summarize `days[0].meals` by category with prices.
-- "What can I eat at ZAL?" → `GET /menu?store=ZAL TechCenter`; note `price_options` (e.g. standard vs `intern` price) — mention both.
+- "What's the menu today?" → `GET /api/menu?store=Airbus Finkenwerder&day=<today's weekday>`, summarize `days[0].meals` by category with prices.
+- "What can I eat at ZAL?" → `GET /api/menu?store=ZAL TechCenter`; note `price_options` (e.g. standard vs `intern` price) — mention both.
 - "Recommend a dish" → fetch today's menu, prefer meals with tags like `Vegetarian` if the user asks for vegetarian, and avoid meals whose `allergens` match a user-stated allergy (allergen codes are portal labels like A/C/G).
 - "Any soup?" → filter meals whose `category` or `name` contains "soup"/"Suppe".
 

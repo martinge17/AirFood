@@ -10,12 +10,12 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/stores")
+@app.get("/api/stores")
 def stores():
     return list(STORES.values())
 
 
-@app.get("/menu")
+@app.get("/api/menu")
 def menu(
     store: str = Query("Airbus Finkenwerder"),
     week: int | None = Query(None, ge=1, le=53),

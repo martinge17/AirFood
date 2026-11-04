@@ -321,7 +321,7 @@
 
   <footer>
     <p>Prices in EUR · allergen codes as shown on the portal</p>
-    <a class="docs" href="/redoc" target="_blank" rel="noopener">API documentation</a>
+    <a class="docs" href="/redoc">API documentation</a>
   </footer>
 </main>
 
@@ -330,7 +330,7 @@
 
   header { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
   h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; margin: 0 auto 0 0; color: #1e5c48; }
-  .store select {
+  .store select, .sort select {
     font: inherit; font-size: .9rem; color: #2b2724;
     background: #fff; border: 1px solid #d8d3c8; border-radius: .5rem;
     padding: .35rem 1.5rem .35rem .6rem; max-width: 12rem;
@@ -338,6 +338,10 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232b2724' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right .5rem center;
   }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 1.25rem 0 .5rem; }
+  .board-title { font-size: .85rem; font-weight: 600; color: #8a8378; margin: 0 auto 0 0; }
+  .all { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; color: #2b2724; cursor: pointer; }
+  .all input { accent-color: #1e5c48; width: 1rem; height: 1rem; cursor: pointer; }
 
   .calendar { background: #fff; border: 1px solid #e3ded4; border-radius: .75rem; padding: .75rem .9rem .9rem; margin-top: 1rem; }
   .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
@@ -358,12 +362,13 @@
   .grid button.selected { background: #1e5c48; color: #fff; }
   .grid button.today:not(.selected) { box-shadow: inset 0 0 0 1.5px #1e5c48; }
 
-  .board-title { font-size: .85rem; font-weight: 600; color: #8a8378; margin: 1.25rem 0 .5rem; }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 1.25rem 0 .5rem; }
+  .board-title { font-size: .85rem; font-weight: 600; color: #8a8378; margin: 0 auto 0 0; }
   .board { background: #fff; border: 1px solid #e3ded4; border-radius: .75rem; padding: 0 1rem; }
   .dish { padding: .9rem 0; }
   .dish + .dish { border-top: 1px dashed #d8d3c8; }
   .line { display: flex; gap: .75rem; align-items: baseline; justify-content: space-between; }
-  .dish img { width: 56px; height: 56px; object-fit: cover; border-radius: .5rem; float: right; margin-left: .75rem; }
+  .dish img { width: 96px; height: 96px; object-fit: cover; border-radius: .6rem; float: right; margin-left: .75rem; }
   .dish h3 { font-size: 1rem; font-weight: 600; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
   .price { margin: 0; text-align: right; white-space: nowrap; font-weight: 700; color: #c2410c; font-variant-numeric: tabular-nums; }
   .price span { display: block; font-size: 1.05rem; }

@@ -25,7 +25,12 @@ export default defineConfig({
           { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
         ],
       },
-      workbox: { navigateFallback: "/index.html" },
+      workbox: {
+        navigateFallback: "/index.html",
+        // never serve the app shell for API/docs/health navigations
+        // (workbox tests these against the full href, so no ^ anchor)
+        navigateFallbackDenylist: [/\/api\//, /\/redoc/, /\/docs/, /\/health/],
+      },
     }),
   ],
   build: { outDir: "dist" },

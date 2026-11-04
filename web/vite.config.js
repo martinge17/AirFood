@@ -3,6 +3,9 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  server: {
+    proxy: { "/api": "http://127.0.0.1:8000" },
+  },
   plugins: [
     svelte(),
     VitePWA({
@@ -12,8 +15,8 @@ export default defineConfig({
         name: "AirFood",
         short_name: "AirFood",
         description: "Live Aramark canteen menu",
-        theme_color: "#b3202c",
-        background_color: "#ffffff",
+        theme_color: "#1e5c48",
+        background_color: "#f6f4ef",
         display: "standalone",
         start_url: "/",
         icons: [

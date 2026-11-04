@@ -1,11 +1,19 @@
 import os
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from qmenu_http import STORES, ScrapeError, fetch_menu, normalize_day
 
 app = FastAPI(title="AirFood", description="Aramark menu data via the reverse-engineered HTTP API", version="0.3.0")
+# read-only public menu API; needed when the PWA is hosted separately (e.g. GitHub Pages)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")

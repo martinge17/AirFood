@@ -1,6 +1,10 @@
 <script>
   import { onMount } from "svelte";
 
+  // Empty = same origin (served by the API container). Set VITE_API_URL at build
+  // time to point a statically hosted build (e.g. GitHub Pages) at the API host.
+  const API = import.meta.env.VITE_API_URL || "";
+
   let stores = [];
   let store = "";
   let week = null;          // null = current week (API default)
@@ -23,7 +27,7 @@
   const currentWeek = todayIsoWeek();
 
   async function loadStores() {
-    const res = await fetch("/api/stores");
+    const res = await fetch(`${API}/api/stores`);
     stores = await res.json();
     store = stores.find((s) => s.name === "Airbus Finkenwerder")?.name ?? stores[0]?.name ?? "";
   }
@@ -35,7 +39,7 @@
     try {
       const params = new URLSearchParams({ store });
       if (week !== null) params.set("week", week);
-      const res = await fetch(`/api/menu?${params}`);
+      const res = await fetch(`${API}/api/menu?${params}`);
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
       weekLabel = body.week;

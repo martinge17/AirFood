@@ -34,4 +34,6 @@ Local: `uv sync && uv run uvicorn main:app --reload`. Docs at <http://localhost:
 
 `web/` is a Vite + Svelte single-screen PWA (store picker, week stepper, day tabs, dish cards). `npm run build` in `web/` produces `dist/`, which the Dockerfile copies into the image and `main.py` mounts at `/`. No separate hosting needed.
 
+**GitHub Pages variant:** Pages is static-only, so the API must run elsewhere. The workflow in `.github/workflows/pages.yml` builds `web/` on every push to `main` and deploys it to Pages at `https://<user>.github.io/AirFood/`. Set the repo secret `AIRFOOD_API_URL` to the deployed API's origin (e.g. `https://airfood.example.com`); the app then calls `<that>/api/*` cross-origin (the API sends permissive CORS by default, override with `CORS_ORIGINS`). Same-origin builds (the container) use relative `/api/*` and need no secret.
+
 Checks: `uv run pytest`. Bruno collection in `bruno/` (`cd bruno && npx @usebruno/cli run -r --env local`).

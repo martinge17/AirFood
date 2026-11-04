@@ -23,7 +23,7 @@ Local: `uv sync && uv run uvicorn main:app --reload`. Docs at <http://localhost:
 ## API
 
 - `GET /health`
-- `GET /api/stores` — the 10 menu stores
-- `GET /api/menu?store=Airbus%20Finkenwerder&week=45&day=Tuesday` — week and day optional
+- `GET /stores` — the 10 menu stores
+- `GET /menu?store=Airbus%20Finkenwerder&week=45&day=Tuesday` — week and day optional
 
 Checks: `uv run pytest`. Bruno collection in `bruno/` (`cd bruno && npx @usebruno/cli run -r --env local`).

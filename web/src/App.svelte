@@ -1,9 +1,12 @@
 <script>
   import { onMount } from "svelte";
+  import { MOCK_STORES, mockMenu } from "./mock.js";
 
   // Empty = same origin (served by the API container). Set VITE_API_URL at build
-  // time to point a statically hosted build (e.g. GitHub Pages) at the API host.
+  // time to point a statically hosted build at an API host; VITE_USE_MOCK=true
+  // (ghpages branch) serves sample data instead of calling any API.
   const API = import.meta.env.VITE_API_URL || "";
+  const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 
   let stores = [];
   let store = "";
@@ -27,8 +30,11 @@
   const currentWeek = todayIsoWeek();
 
   async function loadStores() {
-    const res = await fetch(`${API}/api/stores`);
-    stores = await res.json();
+    if (USE_MOCK) {
+      stores = MOCK_STORES;
+    } else {
+      stores = await (await fetch(`${API}/api/stores`)).json();
+    }
     store = stores.find((s) => s.name === "Airbus Finkenwerder")?.name ?? stores[0]?.name ?? "";
   }
 
@@ -37,11 +43,16 @@
     loading = true;
     error = "";
     try {
-      const params = new URLSearchParams({ store });
-      if (week !== null) params.set("week", week);
-      const res = await fetch(`${API}/api/menu?${params}`);
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
+      let body;
+      if (USE_MOCK) {
+        body = mockMenu(store, week ?? currentWeek);
+      } else {
+        const params = new URLSearchParams({ store });
+        if (week !== null) params.set("week", week);
+        const res = await fetch(`${API}/api/menu?${params}`);
+        body = await res.json();
+        if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
+      }
       weekLabel = body.week;
       days = body.days;
       activeDay = days[0]?.weekday ?? null;

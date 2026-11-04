@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
 
 from qmenu_http import STORES, ScrapeError, fetch_menu, normalize_day
 
@@ -30,3 +33,8 @@ def menu(
         raise HTTPException(422, detail=str(error)) from error
     except ScrapeError as error:
         raise HTTPException(502, detail=str(error)) from error
+
+
+# PWA shell at the domain root; /api/* and /health are matched first.
+if os.path.isdir("dist"):
+    app.mount("/", StaticFiles(directory="dist", html=True), name="web")

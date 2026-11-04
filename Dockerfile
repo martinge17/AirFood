@@ -8,11 +8,19 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 
+FROM node:24-alpine AS web
+WORKDIR /app
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
 FROM cgr.dev/chainguard/python:latest
 WORKDIR /app
 # glob: the chainguard "latest" tag moves Python versions; don't hardcode 3.15
 COPY --from=build /app/.venv/lib/python3.*/site-packages /app/sp/
 ENV PYTHONPATH=/app/sp
 COPY main.py qmenu_http.py ./
+COPY --from=web /app/dist ./dist
 # chainguard python image already has ENTRYPOINT ["/usr/bin/python"]
 CMD ["-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

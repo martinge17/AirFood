@@ -5,3 +5,5 @@ __pycache__/
 skills-lock.json
 *.pyc
 browser-api/
+web/node_modules/
+web/dist/

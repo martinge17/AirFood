@@ -1,0 +1,27 @@
+# Render Blueprint: deploys both services in one click (New -> Blueprint -> this repo).
+# API: Docker build of this repo, Frankfurt (EU) region, free plan.
+# Web: static PWA build of web/, free, global CDN.
+services:
+  - type: web
+    name: airfood-api
+    runtime: docker
+    region: frankfurt
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
+
+  - type: web
+    name: airfood-web
+    runtime: static
+    buildCommand: cd web && npm ci && npm run build
+    staticPublishPath: web/dist
+    envVars:
+      # fill with the API URL after the first deploy (e.g. https://airfood-api-xxxx.onrender.com)
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

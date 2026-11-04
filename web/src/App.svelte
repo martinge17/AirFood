@@ -14,6 +14,8 @@
 
   let stores = [];
   let store = "";
+  let allStores = false;       // show dishes from every canteen
+  let sortBy = "default";      // "default" | "price-asc" | "price-desc"
   let menusByWeek = {};        // week number -> {week: "CW: n", days: [...]}
   let availableDates = new Set();  // ISO dates that have menu data
   let dateToWeek = new Map();      // ISO date -> week number
@@ -22,6 +24,31 @@
   let error = "";
   let viewMonth = monthOf(new Date());
   let selectedIso = null;
+
+  // "Potato and pepper pot | Fried Egg | Farmhouse bread" ->
+  //   title "Potato and pepper pot", ingredients ["Fried Egg", "Farmhouse bread"]
+  function parseDish(name = "") {
+    const parts = name.split("|").map((s) => s.trim()).filter(Boolean);
+    return { title: parts[0] ?? "", ingredients: parts.slice(1) };
+  }
+
+  function priceOf(meal) {
+    const value = parseFloat(meal.price);
+    return Number.isFinite(value) ? value : Infinity;
+  }
+
+  // little "contains" sticker: portal tags first (Vegan/Vegetarian), else keyword scan
+  const MEAT_WORDS = ["pork", "beef", "chicken", "turkey", "lamb", "gyros", "kebab", "hackfleisch", "rind", "schwein", "hähnchen", "pute", "lamm", "fleisch", "bratwurst", "currywurst", "speck", "bacon", "ham", "schinken", "cevapcici", "leberkäs", "steak", "schnitzel", "wurst", "ente", "duck", "gans", "venison", "salami", "frikadelle", "bulette", "ribs", "hacksteak"];
+  const FISH_WORDS = ["fish", "fisch", "lachs", "salmon", "pollock", "forelle", "trout", "tuna", "thunfisch", "garnelen", "shrimp", "scampi", "garnele", "krabben", "matjes", "hering", "kabeljau", "cod", "seelachs", "calamari", "tintenfisch", "muscheln", "aal"];
+  function sticker(meal) {
+    const tags = (meal.tags ?? []).map((t) => (t.name ?? "").toLowerCase());
+    if (tags.some((t) => t.includes("vegan"))) return { label: "Vegan", cls: "vegan" };
+    if (tags.some((t) => t.includes("vegetarian") || t === "veg")) return { label: "Veg", cls: "veg" };
+    const hay = (meal.name ?? "").toLowerCase();
+    if (FISH_WORDS.some((w) => hay.includes(w))) return { label: "Fish", cls: "fish" };
+    if (MEAT_WORDS.some((w) => hay.includes(w))) return { label: "Meat", cls: "meat" };
+    return null;
+  }
 
   function monthOf(d) {
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -64,11 +91,13 @@
   }
 
   let lastStore = "";
+  let lastAll = false;
   const inflight = new Set();
 
-  async function initOrNavigate(s, m) {
-    if (s !== lastStore) {
+  async function initOrNavigate(s, m, all = false) {
+    if (s !== lastStore || all !== lastAll) {
       lastStore = s;
+      lastAll = all;
       menusByWeek = {};
       availableDates = new Set();
       dateToWeek = new Map();
@@ -82,9 +111,9 @@
     }
   }
 
-  async function fetchWeek(week) {
-    if (USE_MOCK) return mockMenu(store, week);
-    const params = new URLSearchParams({ store, week });
+  async function fetchWeek(week, storeName = store) {
+    if (USE_MOCK) return mockMenu(storeName, week);
+    const params = new URLSearchParams({ store: storeName, week });
     const res = await fetch(`${API}/api/menu?${params}`);
     const body = await res.json();
     if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
@@ -94,22 +123,36 @@
   async function ensureMonth(m) {
     const missing = weeksOfMonth(m).filter((w) => !(w in menusByWeek) && !inflight.has(w));
     if (!missing.length) return;
-    for (const w of missing) inflight.add(w);
+    // all-restaurants mode: fetch every store, merge into one pseudo-menu per week
+    const targets = allStores ? stores.map((s) => s.name) : [store];
+    const jobs = [];
+    for (const w of missing) for (const s of targets) jobs.push([w, s]);
+    for (const [w] of jobs) inflight.add(w);
     loading = true;
     error = "";
-    const results = await Promise.allSettled(missing.map((w) => fetchWeek(w).then((body) => [w, body])));
+    const results = await Promise.allSettled(jobs.map(([w, s]) => fetchWeek(w, s).then((body) => [w, s, body])));
     const dates = new Set(availableDates);
     const toWeek = new Map(dateToWeek);
     const toWeekday = new Map(dateToWeekday);
     let anyOk = false;
-    for (const r of results) {
-      const w = missing[results.indexOf(r)];
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const [w] = jobs[i];
       inflight.delete(w);
       if (r.status !== "fulfilled") continue; // week not offered by the portal
-      const body = r.value[1];
-      menusByWeek[w] = body;
+      const body = r.value[2];
+      if (allStores) {
+        const merged = (menusByWeek[w] ??= { week: body.week, days: [] });
+        for (const day of body.days) {
+          let md = merged.days.find((d) => d.weekday === day.weekday);
+          if (!md) merged.days.push((md = { label: day.label, weekday: day.weekday, meals: [] }));
+          md.meals.push(...day.meals.map((meal) => ({ ...meal, store: r.value[1] })));
+        }
+      } else {
+        menusByWeek[w] = body;
+      }
       anyOk = true;
-      for (const day of body.days) {
+      for (const day of menusByWeek[w].days) {
         if (!day.meals.length) continue; // empty days are not selectable
         const idx = WEEKDAYS.indexOf(day.weekday) + 1; // 1..7 Mon..Sun
         if (idx < 1) continue;
@@ -134,7 +177,7 @@
     selectedIso = iso;
   }
 
-  $: initOrNavigate(store, viewMonth);
+  $: if (store) initOrNavigate(store, viewMonth, allStores);
   $: monthLabel = `${MONTHS[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`;
   $: canGoBack = viewMonth > monthOf(new Date());
   $: cells = buildCells(viewMonth, availableDates);
@@ -142,6 +185,12 @@
   $: activeDays = weekOfSelected != null && menusByWeek[weekOfSelected] ? menusByWeek[weekOfSelected].days : [];
   $: activeDay = selectedIso ? dateToWeekday.get(selectedIso) : null;
   $: activeMeals = activeDays.find((d) => d.weekday === activeDay)?.meals ?? [];
+  $: sortedMeals =
+    sortBy === "default"
+      ? activeMeals
+      : [...activeMeals].sort((a, b) =>
+          sortBy === "price-asc" ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a)
+        );
   $: selectedLong = selectedIso
     ? `${dateToWeekday.get(selectedIso)?.slice(0, 3)} ${selectedIso.slice(8)}.${selectedIso.slice(5, 7)}.`
     : "";
@@ -211,14 +260,29 @@
     <p class="error">Menu unavailable right now.</p>
     <button class="retry" on:click={() => ensureMonth(viewMonth)}>Retry</button>
   {:else if selectedIso}
-    <h2 class="board-title">{selectedLong}</h2>
+    <div class="toolbar">
+      <h2 class="board-title">{selectedLong}</h2>
+      <label class="all">
+        <input type="checkbox" bind:checked={allStores} disabled={!stores.length} />
+        All restaurants
+      </label>
+      <label class="sort">
+        <span class="visually-hidden">Sort dishes</span>
+        <select bind:value={sortBy}>
+          <option value="default">Menu order</option>
+          <option value="price-asc">Price: low to high</option>
+          <option value="price-desc">Price: high to low</option>
+        </select>
+      </label>
+    </div>
     {#if activeMeals.length}
       <section class="board">
-        {#each activeMeals as meal}
+        {#each sortedMeals as meal}
+          {@const dish = parseDish(meal.name)}
           <article class="dish">
             {#if meal.image_url}<img src={meal.image_url} alt="" loading="lazy" />{/if}
             <div class="line">
-              <h3>{meal.name}</h3>
+              <h3>{dish.title}</h3>
               <p class="price">
                 {#if meal.price_options?.length > 1}
                   {#each meal.price_options as p}
@@ -229,13 +293,24 @@
                 {/if}
               </p>
             </div>
+            {#if dish.ingredients.length}
+              <ul class="ingredients">
+                {#each dish.ingredients as ing}
+                  <li>{ing}</li>
+                {/each}
+              </ul>
+            {/if}
             <p class="meta">
+              {#if meal.store}<span class="store-chip">{meal.store}</span>{/if}
               {#if meal.category}<span class="cat">{meal.category}</span>{/if}
               {#if meal.allergens?.length}<span class="all">Allergens {meal.allergens.join(" ")}</span>{/if}
               {#each meal.tags ?? [] as t}
                 {#if t.name}<span class="tag">{t.name}</span>{/if}
               {/each}
             </p>
+            {#if sticker(meal)}
+              <span class="sticker {sticker(meal).cls}">{sticker(meal).label}</span>
+            {/if}
           </article>
         {/each}
       </section>
@@ -246,6 +321,7 @@
 
   <footer>
     <p>Prices in EUR · allergen codes as shown on the portal</p>
+    <a class="docs" href="/redoc" target="_blank" rel="noopener">API documentation</a>
   </footer>
 </main>
 
@@ -295,6 +371,14 @@
   .meta { margin: .35rem 0 0; display: flex; flex-wrap: wrap; gap: .3rem .6rem; align-items: center; font-size: .78rem; color: #8a8378; }
   .cat { font-weight: 600; color: #1e5c48; }
   .tag { border: 1px solid #d8d3c8; border-radius: 1rem; padding: .05rem .5rem; color: #2b2724; }
+  .sticker {
+    display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+    border-radius: .35rem; padding: .12rem .45rem; margin-top: .3rem;
+  }
+  .sticker.meat { background: #7c2d12; color: #fff; }
+  .sticker.fish { background: #1d4ed8; color: #fff; }
+  .sticker.veg { background: #15803d; color: #fff; }
+  .sticker.vegan { background: #15803d; color: #fff; }
 
   .quiet { color: #8a8378; }
   .error { color: #a03123; font-weight: 600; margin-bottom: .5rem; }
@@ -303,7 +387,12 @@
     background: #1e5c48; color: #fff; border: none; border-radius: .5rem; padding: .45rem 1.1rem;
   }
   footer { margin-top: 1.5rem; }
-  footer p { font-size: .72rem; color: #b0a99c; margin: 0; }
+  footer p { font-size: .72rem; color: #b0a99c; margin: 0 0 .5rem; }
+  .docs {
+    font-size: .78rem; color: #1e5c48; text-decoration: none;
+    border: 1px solid #d8d3c8; border-radius: .5rem; padding: .3rem .7rem; background: #fff;
+  }
+  .docs:hover { border-color: #1e5c48; }
 
   .visually-hidden {
     position: absolute; width: 1px; height: 1px; margin: -1px;

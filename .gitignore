@@ -4,3 +4,4 @@ __pycache__/
 .agents/
 skills-lock.json
 *.pyc
+browser-api/

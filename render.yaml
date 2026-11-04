@@ -1,0 +1,13 @@
+# Render Blueprint: one service, one URL.
+# airfood.onrender.com/        -> PWA (served by the API container)
+# airfood.onrender.com/api/*   -> JSON API
+# airfood.onrender.com/health  -> health check (Uptime Kuma target)
+# airfood.onrender.com/docs    -> Swagger UI
+# airfood.onrender.com/redoc   -> ReDoc API documentation
+services:
+  - type: web
+    name: airfood
+    runtime: docker
+    region: frankfurt
+    plan: free
+    healthCheckPath: /health

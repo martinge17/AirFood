@@ -15,10 +15,11 @@ Firestore paths (verified against the live SPA):
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 QNIPS_BASE = "https://apps-live-eu.qnips.com/cons/api"
@@ -70,11 +71,11 @@ def normalize_day(day: str) -> str:
     return normalized
 
 
-def _day_name(label: str) -> str | None:
-    match = re.match(r"([A-Za-z]+)", label.strip())
-    return DAY_NAMES.get(match.group(1).lower()) if match else None
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+EN_ABBR = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
-
+# RLock: _menu_id holds the lock while calling _firestore_get, which re-locks on 401.
+_cache_lock = threading.RLock()
 _token = {"value": None, "expires": 0}
 _menu_ids = {"value": None, "expires": 0}
 
@@ -86,35 +87,45 @@ def _request(url: str, headers: dict, data: bytes | None = None) -> tuple[int, b
             return response.status, response.read()
     except urllib.error.HTTPError as error:
         return error.code, error.read()
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise ScrapeError(f"upstream request failed: {error}") from error
+
+
+def _json(body: bytes):
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as error:
+        raise ScrapeError(f"upstream returned non-JSON: {body[:100]!r}") from error
 
 
 def _id_token() -> str:
     """Custom-token sign-in, cached; re-signs 5 minutes before expiry."""
-    if _token["value"] and time.monotonic() < _token["expires"]:
+    with _cache_lock:
+        if _token["value"] and time.monotonic() < _token["expires"]:
+            return _token["value"]
+        _, body = _request(
+            f"{QNIPS_BASE}/FirebaseInfo",
+            {
+                "Authorization": QNIPS_AUTH_HEADER,
+                "App-Brand": QNIPS_BRAND,
+                "Response-Version": "v3",
+            },
+        )
+        custom_token = _json(body).get("CustomToken")
+        if not custom_token:
+            raise ScrapeError("FirebaseInfo did not return a CustomToken")
+        status, body = _request(
+            f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken"
+            f"?key={FIREBASE_API_KEY}",
+            {"Content-Type": "application/json"},
+            json.dumps({"token": custom_token, "returnSecureToken": True}).encode(),
+        )
+        if status != 200:
+            raise ScrapeError(f"Firebase sign-in failed: {body.decode(errors='ignore')[:200]}")
+        result = _json(body)
+        _token["value"] = result["idToken"]
+        _token["expires"] = time.monotonic() + int(result.get("expiresIn", 3600)) - 300
         return _token["value"]
-    _, body = _request(
-        f"{QNIPS_BASE}/FirebaseInfo",
-        {
-            "Authorization": QNIPS_AUTH_HEADER,
-            "App-Brand": QNIPS_BRAND,
-            "Response-Version": "v3",
-        },
-    )
-    custom_token = json.loads(body).get("CustomToken")
-    if not custom_token:
-        raise ScrapeError("FirebaseInfo did not return a CustomToken")
-    status, body = _request(
-        f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken"
-        f"?key={FIREBASE_API_KEY}",
-        {"Content-Type": "application/json"},
-        json.dumps({"token": custom_token, "returnSecureToken": True}).encode(),
-    )
-    if status != 200:
-        raise ScrapeError(f"Firebase sign-in failed: {body.decode(errors='ignore')[:200]}")
-    result = json.loads(body)
-    _token["value"] = result["idToken"]
-    _token["expires"] = time.monotonic() + int(result.get("expiresIn", 3600)) - 300
-    return _token["value"]
 
 
 def _firestore_get(path: str) -> bytes | None:
@@ -129,37 +140,43 @@ def _firestore_get(path: str) -> bytes | None:
         if status == 404:
             return None
         if status == 401 and attempt == 1:
-            _token["expires"] = 0  # force re-sign
+            with _cache_lock:
+                _token["expires"] = 0  # force re-sign
             continue
         raise ScrapeError(f"Firestore read failed ({status}): {body.decode(errors='ignore')[:200]}")
-    return None
 
 
 def _menu_id(menu_name: str) -> str:
-    if _menu_ids["value"] is None or time.monotonic() > _menu_ids["expires"]:
-        body = _firestore_get(f"Release/{LANGUAGE}/StoreMetas?pageSize=100")
-        if body is None:
-            raise ScrapeError("StoreMetas collection not found")
-        index = {}
-        for document in json.loads(body).get("documents", []):
-            for store in document["fields"].get("Stores", {}).get("arrayValue", {}).get("values", []):
-                for menu in store["mapValue"]["fields"].get("Menus", {}).get("arrayValue", {}).get("values", []):
-                    fields = menu["mapValue"]["fields"]
-                    name = fields.get("Name", {}).get("stringValue")
-                    menu_id = (fields.get("Id") or {}).get("integerValue")
-                    if name and menu_id and fields.get("ShowInCateringPortal", {}).get("booleanValue"):
-                        index[name] = menu_id
-        if not index:
-            raise ScrapeError("StoreMetas contained no catering-portal menus")
-        _menu_ids["value"] = index
-        _menu_ids["expires"] = time.monotonic() + 3600
-    if menu_name not in _menu_ids["value"]:
-        raise ScrapeError(f"Menu not known to the portal: {menu_name}")
-    return _menu_ids["value"][menu_name]
+    with _cache_lock:
+        if _menu_ids["value"] is None or time.monotonic() > _menu_ids["expires"]:
+            index = {}
+            path = f"Release/{LANGUAGE}/StoreMetas?pageSize=100"
+            while path:
+                body = _firestore_get(path)
+                if body is None:
+                    raise ScrapeError("StoreMetas collection not found")
+                page = _json(body)
+                for document in page.get("documents", []):
+                    for store in document["fields"].get("Stores", {}).get("arrayValue", {}).get("values", []):
+                        for menu in store["mapValue"]["fields"].get("Menus", {}).get("arrayValue", {}).get("values", []):
+                            fields = menu["mapValue"]["fields"]
+                            name = fields.get("Name", {}).get("stringValue")
+                            menu_id = (fields.get("Id") or {}).get("integerValue")
+                            if name and menu_id and fields.get("ShowInCateringPortal", {}).get("booleanValue"):
+                                index[name] = menu_id
+                page_token = page.get("nextPageToken")
+                path = f"Release/{LANGUAGE}/StoreMetas?pageSize=100&pageToken={page_token}" if page_token else None
+            if not index:
+                raise ScrapeError("StoreMetas contained no catering-portal menus")
+            _menu_ids["value"] = index
+            _menu_ids["expires"] = time.monotonic() + 3600
+        if menu_name not in _menu_ids["value"]:
+            raise ScrapeError(f"Menu not known to the portal: {menu_name}")
+        return _menu_ids["value"][menu_name]
 
 
-def _week_path(menu_id: str, week: int | None) -> tuple[str, int]:
-    today = date.today()
+def _week_path(week: int | None) -> tuple[str, int]:
+    today = datetime.now(timezone.utc).date()
     iso_year, iso_week, _ = today.isocalendar()
     if week is None:
         return f"{iso_year}", iso_week
@@ -245,7 +262,9 @@ def _week_days(week_fields: dict) -> list[dict]:
         ).astimezone(zone)
         if day_date.date() < today:
             continue
-        label = day_date.strftime("%a. %d.%m.")
+        # fixed English names: strftime %a/%A are locale-dependent
+        weekday = WEEKDAYS[day_date.isoweekday() - 1]
+        label = f"{EN_ABBR[day_date.isoweekday() - 1]}. {day_date.day:02d}.{day_date.month:02d}."
         meals = []
         for category in fields.get("Categories", {}).get("arrayValue", {}).get("values", []):
             category_fields = category["mapValue"]["fields"]
@@ -254,17 +273,17 @@ def _week_days(week_fields: dict) -> list[dict]:
             name = category_fields.get("Name", {}).get("stringValue")
             for product in category_fields.get("Products", {}).get("arrayValue", {}).get("values", []):
                 meals.append(_meal(product["mapValue"]["fields"], name, week_fields))
-        days.append({"label": label, "weekday": _day_name(label), "meals": meals})
+        days.append({"label": label, "weekday": weekday, "meals": meals})
     return days
 
 
 def fetch_menu(store: dict, week: int | None = None, day: str | None = None) -> dict:
     menu_id = _menu_id(store["menu"])
-    year, week_number = _week_path(menu_id, week)
+    year, week_number = _week_path(week)
     body = _firestore_get(f"Release/{LANGUAGE}/Menus/{menu_id}/Years/{year}/Weeks/{week_number}")
     if body is None:
         raise ValueError(f"week {week_number} is not available in the portal")
-    week_fields = json.loads(body)["fields"]
+    week_fields = _json(body)["fields"]
     days = _week_days(week_fields)
     if day:
         days = [entry for entry in days if entry["weekday"] == day]

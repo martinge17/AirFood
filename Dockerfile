@@ -10,7 +10,9 @@ RUN uv sync --locked --no-dev
 
 FROM cgr.dev/chainguard/python:latest
 WORKDIR /app
-COPY --from=build /app/.venv/lib/python3.15/site-packages /usr/lib/python3.15/site-packages
+# glob: the chainguard "latest" tag moves Python versions; don't hardcode 3.15
+COPY --from=build /app/.venv/lib/python3.*/site-packages /app/sp/
+ENV PYTHONPATH=/app/sp
 COPY main.py qmenu_http.py ./
 # chainguard python image already has ENTRYPOINT ["/usr/bin/python"]
 CMD ["-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

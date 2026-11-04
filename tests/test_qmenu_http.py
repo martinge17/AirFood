@@ -1,9 +1,14 @@
+import calendar
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 import qmenu_http
-from qmenu_http import ScrapeError
+
+
+def today():
+    return datetime.now(timezone.utc).date()
 
 
 def fs_str(value):
@@ -12,10 +17,6 @@ def fs_str(value):
 
 def fs_int(value):
     return {"integerValue": str(value)}
-
-
-def fs_bool(value):
-    return {"booleanValue": value}
 
 
 def fs_array(values):
@@ -113,21 +114,18 @@ def test_prices_preserve_labels_and_formatting():
 
 
 def test_week_path_handles_iso_year_boundary(monkeypatch):
-    class FakeDate(qmenu_http.date):
-        @classmethod
-        def today(cls):
-            return cls(2026, 12, 28)  # ISO week 53 of 2026
+    class FakeDateTime:
+        @staticmethod
+        def now(tz=None):
+            return datetime(2026, 12, 28, tzinfo=timezone.utc)  # ISO week 53 of 2026
 
-    monkeypatch.setattr(qmenu_http, "date", FakeDate)
-    assert qmenu_http._week_path("1", 1) == ("2027", 1)
-    assert qmenu_http._week_path("1", 45) == ("2026", 45)
-
-
-from datetime import timedelta
+    monkeypatch.setattr(qmenu_http, "datetime", FakeDateTime)
+    assert qmenu_http._week_path(1) == ("2027", 1)
+    assert qmenu_http._week_path(45) == ("2026", 45)
 
 
 def _iso(offset_days: int) -> str:
-    return (qmenu_http.date.today() + timedelta(days=offset_days)).isoformat() + "T00:00:00Z"
+    return (today() + timedelta(days=offset_days)).isoformat() + "T00:00:00Z"
 
 
 def test_fetch_menu_maps_week_doc(monkeypatch):
@@ -157,8 +155,9 @@ def test_fetch_menu_maps_week_doc(monkeypatch):
     result = qmenu_http.fetch_menu({"name": "Casino", "menu": "Casino HH-Finkenwerder"}, week=45)
     assert result["week"] == "CW: 45"
     day_result = result["days"][0]
-    assert day_result["label"] == qmenu_http.date.today().strftime("%a. %d.%m.")
-    assert day_result["weekday"] == qmenu_http.date.today().strftime("%A")
+    today_date = today()
+    assert day_result["label"] == f"{qmenu_http.EN_ABBR[today_date.isoweekday() - 1]}. {today_date.day:02d}.{today_date.month:02d}."
+    assert day_result["weekday"] == calendar.day_name[today_date.weekday()]
     meal = day_result["meals"][0]
     assert meal["name"] == "Minestrone"
     assert meal["category"] == "Suppentopf"
@@ -179,10 +178,11 @@ def test_fetch_menu_day_filter(monkeypatch):
     monkeypatch.setattr(qmenu_http, "_menu_id", lambda name: "12246")
     monkeypatch.setattr(qmenu_http, "_firestore_get", lambda path: doc)
     store = {"name": "Casino", "menu": "Casino HH-Finkenwerder"}
-    result = qmenu_http.fetch_menu(store, week=45, day=(qmenu_http.date.today() + timedelta(days=1)).strftime("%A"))
+    result = qmenu_http.fetch_menu(store, week=45, day=calendar.day_name[(today() + timedelta(days=1)).weekday()])
     assert len(result["days"]) == 1
+    absent = calendar.day_name[(today() + timedelta(days=2)).weekday()]  # not today or tomorrow
     with pytest.raises(ValueError):
-        qmenu_http.fetch_menu(store, week=45, day="Sunday")
+        qmenu_http.fetch_menu(store, week=45, day=absent)
 
 
 def test_fetch_menu_unknown_week_is_client_error(monkeypatch):
@@ -190,7 +190,3 @@ def test_fetch_menu_unknown_week_is_client_error(monkeypatch):
     monkeypatch.setattr(qmenu_http, "_firestore_get", lambda path: None)
     with pytest.raises(ValueError):
         qmenu_http.fetch_menu({"name": "Casino", "menu": "Casino HH-Finkenwerder"}, week=2)
-
-
-def test_scrape_error_is_shared_with_api():
-    assert qmenu_http.ScrapeError is ScrapeError

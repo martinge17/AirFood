@@ -1,6 +1,6 @@
 [project]
 name = "airfood"
-version = "0.1.0"
+version = "0.3.0"
 description = "Read menu data from the Aramark Catering Portal"
 requires-python = ">=3.12"
 dependencies = [

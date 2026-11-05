@@ -29,6 +29,7 @@ Local: `uv sync && uv run uvicorn main:app --reload`. Docs at <http://localhost:
 - `GET /health`
 - `GET /api/stores` — the 10 menu stores
 - `GET /api/menu?store=Airbus%20Finkenwerder&week=45&day=Tuesday` — week and day optional
+- `GET /api/product?store=Kantine%20Hs.%2018&product=22956435` — full dish detail: nutrition per 100 g and per serving, allergen names, weight, price options
 
 ## Web app
 

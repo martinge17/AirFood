@@ -190,3 +190,31 @@ def test_fetch_menu_unknown_week_is_client_error(monkeypatch):
     monkeypatch.setattr(qmenu_http, "_firestore_get", lambda path: None)
     with pytest.raises(ValueError):
         qmenu_http.fetch_menu({"name": "Casino", "menu": "Casino HH-Finkenwerder"}, week=2)
+
+
+def test_fetch_product_returns_nutrition_and_allergen_details(monkeypatch):
+    facts = fs_map(
+        {
+            "KCalPer100": fs_int(135),
+            "FatsPer100": {"doubleValue": 3.6},
+            "KCalPerServing": fs_int(554),
+            "ProteinsPerServing": {"doubleValue": 20.7},
+        }
+    )
+    prod = product("Crispy rice bowl", allergens=(0,), prices=(5.5,))
+    prod["mapValue"]["fields"]["Id"] = fs_int(22956435)
+    prod["mapValue"]["fields"]["NutritionFacts"] = facts
+    prod["mapValue"]["fields"]["WeightInGrams"] = {"doubleValue": 450}
+    doc = week_doc([day(_iso(0), [category("salad garden", [prod])])])
+    monkeypatch.setattr(qmenu_http, "_menu_id", lambda name: "12253")
+    monkeypatch.setattr(qmenu_http, "_firestore_get", lambda path: doc)
+
+    result = qmenu_http.fetch_product({"name": "Kantine Hs. 18", "menu": "Kantine Hs. 18, HH-Finkenwerder"}, "22956435", week=45)
+    assert result["id"] == "22956435"
+    assert result["name"] == "Crispy rice bowl"
+    assert result["nutrition"]["per_100g"] == {"Calories (kcal)": 135.0, "Fat (g)": 3.6}
+    assert result["nutrition"]["per_serving"] == {"Calories (kcal)": 554.0, "Protein (g)": 20.7}
+    assert result["weight_grams"] == 450
+    assert result["allergen_details"] == [{"label": "A1", "name": None}] or result["allergen_details"][0]["label"] == "A1"
+    with pytest.raises(ValueError):
+        qmenu_http.fetch_product({"name": "Kantine Hs. 18", "menu": "Kantine Hs. 18, HH-Finkenwerder"}, "999", week=45)

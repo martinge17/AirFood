@@ -1,0 +1,26 @@
+meta {
+  name: Product detail
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/product?store=Kantine%20Hs.%2018&product=22956435
+  body: none
+  auth: none
+}
+
+tests {
+  test("product has nutrition facts", function() {
+    const body = res.getBody();
+    expect(res.status).to.equal(200);
+    expect(body.id).to.equal("22956435");
+    expect(body.nutrition.per_100g).to.have.property("Calories (kcal)");
+    expect(body.nutrition.per_serving).to.have.property("Calories (kcal)");
+    expect(body.allergen_details).to.be.an("array").that.is.not.empty;
+  });
+}
+
+settings {
+  encodeUrl: true
+}

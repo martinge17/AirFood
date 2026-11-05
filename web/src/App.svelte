@@ -16,6 +16,8 @@
   let store = "";
   let allStores = false;       // show dishes from every canteen
   let sortBy = "default";      // "default" | "price-asc" | "price-desc"
+  let filter = "all";          // "all" or a sticker label / tag name
+  let filtersOpen = false;
   let menusByWeek = {};        // week number -> {week: "CW: n", days: [...]}
   let availableDates = new Set();  // ISO dates that have menu data
   let dateToWeek = new Map();      // ISO date -> week number
@@ -218,6 +220,20 @@
       : [...activeMeals].sort((a, b) =>
           sortBy === "price-asc" ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a)
         );
+  $: filterOptions = [
+    "all",
+    ...["Vegan", "Veg", "Meat", "Fish"].filter((f) =>
+      activeMeals.some((m) => sticker(m)?.label === f)
+    ),
+    ...[...new Set(activeMeals.flatMap((m) => (m.tags ?? []).map((t) => t.name).filter(Boolean)))]
+      .filter((t) => !["Vegan", "Veg", "Meat", "Fish", "Vegetarian"].includes(t) && t.length <= 20 && !t.includes("€")),
+  ];
+  $: visibleMeals =
+    filter === "all"
+      ? sortedMeals
+      : sortedMeals.filter(
+          (m) => sticker(m)?.label === filter || (m.tags ?? []).some((t) => t.name === filter)
+        );
   $: selectedLong = selectedIso
     ? `${dateToWeekday.get(selectedIso)?.slice(0, 3)} ${selectedIso.slice(8)}.${selectedIso.slice(5, 7)}.`
     : "";
@@ -304,10 +320,22 @@
           <option value="price-desc">Price: high to low</option>
         </select>
       </label>
+      <button class="filter-btn" class:open={filtersOpen} on:click={() => (filtersOpen = !filtersOpen)} aria-expanded={filtersOpen}>
+        Filters{#if filter !== "all"} · {filter}{/if}
+      </button>
     </div>
-    {#if activeMeals.length}
+    {#if filtersOpen}
+      <div class="chips" role="group" aria-label="Dish filters">
+        {#each filterOptions as f}
+          <button class="chip" class:active={filter === f} on:click={() => (filter = f)}>
+            {f === "all" ? "All" : f}
+          </button>
+        {/each}
+      </div>
+    {/if}
+    {#if visibleMeals.length}
       <section class="board">
-        {#each sortedMeals as meal}
+        {#each visibleMeals as meal}
           {@const dish = parseDish(meal.name)}
           <article class="dish" on:click={() => openDetail(meal)} tabindex="0" role="button" on:keydown={(e) => e.key === "Enter" && openDetail(meal)}>
             <div class="body">
@@ -432,6 +460,17 @@
   .board-title { font-size: .85rem; font-weight: 600; color: #8a8378; margin: 0 auto 0 0; }
   .all { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; color: #2b2724; cursor: pointer; }
   .all input { accent-color: #1e5c48; width: 1rem; height: 1rem; cursor: pointer; }
+  .filter-btn {
+    font: inherit; font-size: .85rem; color: #2b2724; cursor: pointer;
+    background: #fff; border: 1px solid #d8d3c8; border-radius: .5rem; padding: .35rem .7rem;
+  }
+  .filter-btn.open { border-color: #1e5c48; color: #1e5c48; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: .375rem; margin: 0 0 .75rem; }
+  .chip {
+    font: inherit; font-size: .8rem; cursor: pointer; color: #2b2724;
+    background: #fff; border: 1px solid #d8d3c8; border-radius: 1rem; padding: .25rem .7rem;
+  }
+  .chip.active { background: #1e5c48; border-color: #1e5c48; color: #fff; font-weight: 600; }
 
   .calendar { background: #fff; border: 1px solid #e3ded4; border-radius: .75rem; padding: .75rem .9rem .9rem; margin-top: 1rem; }
   .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }

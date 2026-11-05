@@ -11,6 +11,7 @@ Base URL: `http://localhost:8000` (override with `AIRFOOD_BASE_URL`). Interactiv
 
 - `GET /api/stores` — list of the 10 menu stores (`name`, `menu`).
 - `GET /api/menu?store=<name>&week=<1-53>&day=<Weekday>` — menu JSON. All params optional; defaults: store `Airbus Finkenwerder`, current ISO week, all remaining days of that week (past days are omitted by the source).
+- `GET /api/product?store=<name>&product=<id>&week=<1-53>` — one dish's full detail: `nutrition.per_100g` / `nutrition.per_serving` (Calories, Energy, Fat, saturates, Carbs, sugars, Protein, Salt), `allergen_details` (code + full name), `weight_grams`, `price_options`, tags, image. Meal `id` comes from `/api/menu`.
 - `GET /health`
 
 ## Response shape

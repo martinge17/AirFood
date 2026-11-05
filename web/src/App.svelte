@@ -24,6 +24,33 @@
   let error = "";
   let viewMonth = monthOf(new Date());
   let selectedIso = null;
+  let detail = null;        // product detail for the modal
+  let detailLoading = false;
+
+  async function openDetail(meal) {
+    if (!meal.id) return;
+    detail = meal;
+    detailLoading = true;
+    try {
+      if (USE_MOCK) {
+        detail = { ...meal, nutrition: { per_100g: { "Calories (kcal)": 139, "Fat (g)": 5.9, "Carbohydrate (g)": 15.6, "Protein (g)": 4.9, "Salt (g)": 0.7 }, per_serving: { "Calories (kcal)": 624, "Fat (g)": 26.3, "Carbohydrate (g)": 70.1, "Protein (g)": 22.1, "Salt (g)": 3.2 } }, allergen_details: [{ label: "A1", name: "Wheat and wheat products (such as spelt and khorasan wheat)" }], weight_grams: 450 };
+      } else {
+        const params = new URLSearchParams({ store, product: meal.id });
+        if (weekOfSelected != null) params.set("week", weekOfSelected);
+        const res = await fetch(`${API}/api/product?${params}`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
+        detail = body;
+      }
+    } catch (e) {
+      error = e.message;
+    } finally {
+      detailLoading = false;
+    }
+  }
+  function closeDetail() {
+    detail = null;
+  }
 
   // "Potato and pepper pot | Fried Egg | Farmhouse bread" ->
   //   title "Potato and pepper pot", ingredients ["Fried Egg", "Farmhouse bread"]
@@ -212,6 +239,9 @@
     if (USE_MOCK) stores = MOCK_STORES;
     else stores = await (await fetch(`${API}/api/stores`)).json();
     store = stores.find((s) => s.name === "Airbus Finkenwerder")?.name ?? stores[0]?.name ?? "";
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeDetail();
+    });
   });
 </script>
 
@@ -279,7 +309,7 @@
       <section class="board">
         {#each sortedMeals as meal}
           {@const dish = parseDish(meal.name)}
-          <article class="dish">
+          <article class="dish" on:click={() => openDetail(meal)} tabindex="0" role="button" on:keydown={(e) => e.key === "Enter" && openDetail(meal)}>
             {#if meal.image_url}<img src={meal.image_url} alt="" loading="lazy" />{/if}
             <div class="line">
               <h3>{dish.title}</h3>
@@ -323,6 +353,60 @@
     <p>Prices in EUR · allergen codes as shown on the portal</p>
     <a class="docs" href="/redoc">API documentation</a>
   </footer>
+
+  {#if detail}
+    {@const d = parseDish(detail.name)}
+    <div class="overlay" on:click={closeDetail} on:keydown={(e) => e.key === "Escape" && closeDetail()} role="dialog" aria-modal="true">
+      <div class="sheet" on:click|stopPropagation on:keydown={() => {}}>
+        <button class="close" on:click={closeDetail} aria-label="Close">×</button>
+        {#if detail.image_url}<img class="hero" src={detail.image_url} alt="" />{/if}
+        <h2>{d.title}</h2>
+        {#if d.ingredients.length}
+          <ul class="ingredients">
+            {#each d.ingredients as ing}<li>{ing}</li>{/each}
+          </ul>
+        {/if}
+        <p class="meta">
+          {#if detail.store}<span class="store-chip">{detail.store}</span>{/if}
+          {#if detail.category}<span class="cat">{detail.category}</span>{/if}
+          {#each detail.tags ?? [] as t}{#if t.name}<span class="tag">{t.name}</span>{/if}{/each}
+          {#if sticker(detail)}<span class="sticker {sticker(detail).cls}">{sticker(detail).label}</span>{/if}
+        </p>
+        <p class="price big">
+          {#each detail.price_options ?? [] as p}<span>{p.label ? `${p.label} ` : ""}{p.amount} {p.currency ?? ""}</span>{/each}
+        </p>
+        {#if detailLoading}
+          <p class="quiet">Loading details…</p>
+        {:else}
+          {#if detail.allergen_details?.length}
+            <h3>Allergens</h3>
+            <table class="facts">
+              <tbody>
+              {#each detail.allergen_details as a}
+                <tr><td class="code">{a.label}</td><td>{a.name}</td></tr>
+              {/each}
+              </tbody>
+            </table>
+          {/if}
+          {#if detail.nutrition && (detail.nutrition.per_100g || detail.nutrition.per_serving)}
+            <h3>Nutrition {#if detail.weight_grams}<small>({detail.weight_grams} g serving)</small>{/if}</h3>
+            <table class="facts">
+              <thead><tr><th></th><th>per 100 g</th><th>per serving</th></tr></thead>
+              <tbody>
+              {#each Object.entries(detail.nutrition.per_100g ?? {}) as [label, v100]}
+                <tr>
+                  <td>{label}</td>
+                  <td>{v100}</td>
+                  <td>{detail.nutrition.per_serving?.[label] ?? "—"}</td>
+                </tr>
+              {/each}
+              </tbody>
+            </table>
+          {/if}
+        {/if}
+      </div>
+    </div>
+  {/if}
 </main>
 
 <style>
@@ -365,7 +449,10 @@
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 1.25rem 0 .5rem; }
   .board-title { font-size: .85rem; font-weight: 600; color: #8a8378; margin: 0 auto 0 0; }
   .board { background: #fff; border: 1px solid #e3ded4; border-radius: .75rem; padding: 0 1rem; }
-  .dish { padding: .9rem 0; }
+  .dish { padding: .9rem 0; cursor: pointer; }
+  .dish:hover { background: #faf8f4; }
+  .ingredients { margin: .35rem 0 0; padding-left: 1.1rem; font-size: .85rem; color: #5c564d; }
+  .ingredients li { margin: .1rem 0; }
   .dish + .dish { border-top: 1px dashed #d8d3c8; }
   .line { display: flex; gap: .75rem; align-items: baseline; justify-content: space-between; }
   .dish img { width: 96px; height: 96px; object-fit: cover; border-radius: .6rem; float: right; margin-left: .75rem; }
@@ -398,6 +485,30 @@
     border: 1px solid #d8d3c8; border-radius: .5rem; padding: .3rem .7rem; background: #fff;
   }
   .docs:hover { border-color: #1e5c48; }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(43, 39, 36, .45);
+    display: flex; align-items: flex-end; justify-content: center; z-index: 10;
+  }
+  .sheet {
+    background: #fff; width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
+    border-radius: 1rem 1rem 0 0; padding: 1.1rem 1.1rem 2rem; position: relative;
+  }
+  .close {
+    position: absolute; top: .6rem; right: .7rem; font-size: 1.4rem; line-height: 1;
+    border: 1px solid #d8d3c8; background: #fff; border-radius: .5rem; width: 2rem; height: 2rem; cursor: pointer;
+  }
+  .hero { width: 100%; height: 180px; object-fit: cover; border-radius: .6rem; margin-bottom: .75rem; }
+  .sheet h2 { font-size: 1.2rem; margin: 0 0 .4rem; }
+  .sheet h3 { font-size: .85rem; margin: 1rem 0 .4rem; color: #1e5c48; }
+  .sheet h3 small { color: #8a8378; font-weight: 400; }
+  .price.big { text-align: left; font-size: 1.2rem; }
+  .facts { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .facts th { text-align: right; font-size: .72rem; color: #8a8378; font-weight: 600; padding: .2rem .4rem; border-bottom: 1px solid #d8d3c8; }
+  .facts th:first-child { text-align: left; }
+  .facts td { padding: .3rem .4rem; border-bottom: 1px dashed #e3ded4; text-align: right; font-variant-numeric: tabular-nums; }
+  .facts td:first-child { text-align: left; }
+  .facts td.code { font-weight: 700; color: #c2410c; }
 
   .visually-hidden {
     position: absolute; width: 1px; height: 1px; margin: -1px;

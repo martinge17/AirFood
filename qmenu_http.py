@@ -232,6 +232,7 @@ def _meal(product: dict, category: str, week_fields: dict) -> dict:
     prices = _prices(product)
     tags = product.get("CustomTags", {}).get("arrayValue", {}).get("values", [])
     return {
+        "id": (product.get("Id") or {}).get("integerValue"),
         "name": product.get("Name", {}).get("stringValue"),
         "category": category,
         "price": prices[0]["amount"] if prices else None,
@@ -295,3 +296,72 @@ def fetch_menu(store: dict, week: int | None = None, day: str | None = None) -> 
         "week": f"CW: {week_number}",
         "days": days,
     }
+
+
+NUTRITION_LABELS = {
+    "KCal": "Calories (kcal)",
+    "KJ": "Energy (kJ)",
+    "Fats": "Fat (g)",
+    "Sats": "of which saturates (g)",
+    "Carbs": "Carbohydrate (g)",
+    "Sugar": "of which sugars (g)",
+    "Proteins": "Protein (g)",
+    "Salt": "Salt (g)",
+}
+
+
+def _nutrition(product: dict) -> dict:
+    facts = product.get("NutritionFacts", {}).get("mapValue", {}).get("fields", {})
+    out = {}
+    for suffix, label in (("Per100", "per_100g"), ("PerServing", "per_serving")):
+        row = {}
+        for key, value in facts.items():
+            if key.endswith(suffix):
+                base = key[: -len(suffix)]
+                if base in NUTRITION_LABELS:
+                    number = value.get("integerValue") or value.get("doubleValue")
+                    if number is not None:
+                        row[NUTRITION_LABELS[base]] = float(number)
+        if row:
+            out[label] = row
+    return out
+
+
+def _allergen_details(product: dict, week_fields: dict) -> list[dict]:
+    main_ids = {v["integerValue"] for v in product.get("Allergens", {}).get("arrayValue", {}).get("values", [])}
+    sub_ids = set()
+    for key in ("SubAllergens0", "SubAllergens7"):
+        sub_ids |= {v["integerValue"] for v in product.get(key, {}).get("arrayValue", {}).get("values", [])}
+    details = []
+    for entry in week_fields.get("Allergens", {}).get("arrayValue", {}).get("values", []):
+        fields = entry.get("mapValue", {}).get("fields", {})
+        main = (fields.get("AllergenId") or {}).get("integerValue")
+        sub = (fields.get("SubAllergenId") or {"integerValue": "0"}).get("integerValue")
+        label = (fields.get("Label") or {}).get("stringValue")
+        name = (fields.get("Name") or {}).get("stringValue")
+        if main in main_ids and (sub == "0" or sub in sub_ids):
+            details.append({"label": label, "name": name})
+    return details
+
+
+def fetch_product(store: dict, product_id: str, week: int | None = None) -> dict:
+    """Full product detail (nutrition, allergen descriptions) from the week doc."""
+    menu_id = _menu_id(store["menu"])
+    year, week_number = _week_path(week)
+    body = _firestore_get(f"Release/{LANGUAGE}/Menus/{menu_id}/Years/{year}/Weeks/{week_number}")
+    if body is None:
+        raise ValueError(f"week {week_number} is not available in the portal")
+    week_fields = _json(body)["fields"]
+    for day in week_fields.get("Days", {}).get("arrayValue", {}).get("values", []):
+        for category in day.get("mapValue", {}).get("fields", {}).get("Categories", {}).get("arrayValue", {}).get("values", []):
+            category_fields = category["mapValue"]["fields"]
+            for product in category_fields.get("Products", {}).get("arrayValue", {}).get("values", []):
+                product_fields = product["mapValue"]["fields"]
+                if (product_fields.get("Id") or {}).get("integerValue") == str(product_id):
+                    meal = _meal(product_fields, category_fields.get("Name", {}).get("stringValue"), week_fields)
+                    meal["nutrition"] = _nutrition(product_fields)
+                    meal["allergen_details"] = _allergen_details(product_fields, week_fields)
+                    meal["weight_grams"] = (product_fields.get("WeightInGrams") or {}).get("doubleValue")
+                    meal["week"] = f"CW: {week_number}"
+                    return meal
+    raise ValueError(f"product {product_id} is not on the menu in CW: {week_number}")

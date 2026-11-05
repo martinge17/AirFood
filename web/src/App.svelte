@@ -310,36 +310,42 @@
         {#each sortedMeals as meal}
           {@const dish = parseDish(meal.name)}
           <article class="dish" on:click={() => openDetail(meal)} tabindex="0" role="button" on:keydown={(e) => e.key === "Enter" && openDetail(meal)}>
-            {#if meal.image_url}<img src={meal.image_url} alt="" loading="lazy" />{/if}
-            <div class="line">
-              <h3>{dish.title}</h3>
-              <p class="price">
-                {#if meal.price_options?.length > 1}
-                  {#each meal.price_options as p}
-                    <span>{p.label ? `${p.label} ` : ""}{p.amount}</span>
+            <div class="body">
+              <div class="line">
+                <h3>{dish.title}</h3>
+                <p class="price">
+                  {#if meal.price_options?.length > 1}
+                    {#each meal.price_options as p}
+                      <span>{p.label ? `${p.label} ` : ""}{p.amount}</span>
+                    {/each}
+                  {:else}
+                    <span>{meal.price ?? "—"}</span>
+                  {/if}
+                </p>
+              </div>
+              {#if dish.ingredients.length}
+                <ul class="ingredients">
+                  {#each dish.ingredients as ing}
+                    <li>{ing}</li>
                   {/each}
-                {:else}
-                  <span>{meal.price ?? "—"}</span>
+                </ul>
+              {/if}
+              <p class="meta">
+                {#if meal.store}<span class="store-chip">{meal.store}</span>{/if}
+                {#if meal.category}<span class="cat">{meal.category}</span>{/if}
+                {#if meal.allergens?.length}<span class="all">Allergens {meal.allergens.join(" ")}</span>{/if}
+                {#each meal.tags ?? [] as t}
+                  {#if t.name}<span class="tag">{t.name}</span>{/if}
+                {/each}
+                {#if sticker(meal)}
+                  <span class="sticker {sticker(meal).cls}">{sticker(meal).label}</span>
                 {/if}
               </p>
             </div>
-            {#if dish.ingredients.length}
-              <ul class="ingredients">
-                {#each dish.ingredients as ing}
-                  <li>{ing}</li>
-                {/each}
-              </ul>
-            {/if}
-            <p class="meta">
-              {#if meal.store}<span class="store-chip">{meal.store}</span>{/if}
-              {#if meal.category}<span class="cat">{meal.category}</span>{/if}
-              {#if meal.allergens?.length}<span class="all">Allergens {meal.allergens.join(" ")}</span>{/if}
-              {#each meal.tags ?? [] as t}
-                {#if t.name}<span class="tag">{t.name}</span>{/if}
-              {/each}
-            </p>
-            {#if sticker(meal)}
-              <span class="sticker {sticker(meal).cls}">{sticker(meal).label}</span>
+            {#if meal.image_url}
+              <img class="thumb" src={meal.image_url} alt="" loading="lazy" />
+            {:else}
+              <div class="thumb placeholder" aria-hidden="true">{dish.title.charAt(0)}</div>
             {/if}
           </article>
         {/each}
@@ -449,13 +455,18 @@
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 1.25rem 0 .5rem; }
   .board-title { font-size: .85rem; font-weight: 600; color: #8a8378; margin: 0 auto 0 0; }
   .board { background: #fff; border: 1px solid #e3ded4; border-radius: .75rem; padding: 0 1rem; }
-  .dish { padding: .9rem 0; cursor: pointer; }
+  .dish { padding: .9rem 0; cursor: pointer; display: grid; grid-template-columns: 1fr 96px; gap: .75rem; align-items: start; }
   .dish:hover { background: #faf8f4; }
+  .dish .body { min-width: 0; }
+  .dish .thumb { width: 96px; height: 96px; object-fit: cover; border-radius: .6rem; }
+  .dish .thumb.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background: #eef3f0; color: #1e5c48; font-size: 1.8rem; font-weight: 700;
+  }
   .ingredients { margin: .35rem 0 0; padding-left: 1.1rem; font-size: .85rem; color: #5c564d; }
   .ingredients li { margin: .1rem 0; }
   .dish + .dish { border-top: 1px dashed #d8d3c8; }
   .line { display: flex; gap: .75rem; align-items: baseline; justify-content: space-between; }
-  .dish img { width: 96px; height: 96px; object-fit: cover; border-radius: .6rem; float: right; margin-left: .75rem; }
   .dish h3 { font-size: 1rem; font-weight: 600; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
   .price { margin: 0; text-align: right; white-space: nowrap; font-weight: 700; color: #c2410c; font-variant-numeric: tabular-nums; }
   .price span { display: block; font-size: 1.05rem; }
@@ -463,9 +474,10 @@
   .meta { margin: .35rem 0 0; display: flex; flex-wrap: wrap; gap: .3rem .6rem; align-items: center; font-size: .78rem; color: #8a8378; }
   .cat { font-weight: 600; color: #1e5c48; }
   .tag { border: 1px solid #d8d3c8; border-radius: 1rem; padding: .05rem .5rem; color: #2b2724; }
+  .store-chip { border: 1px solid #1e5c48; color: #1e5c48; border-radius: 1rem; padding: .05rem .5rem; font-weight: 600; }
   .sticker {
     display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .04em;
-    border-radius: .35rem; padding: .12rem .45rem; margin-top: .3rem;
+    border-radius: .35rem; padding: .12rem .45rem;
   }
   .sticker.meat { background: #7c2d12; color: #fff; }
   .sticker.fish { background: #1d4ed8; color: #fff; }

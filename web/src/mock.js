@@ -12,6 +12,7 @@ const DISHES = [
     name: "Minestrone | Italian vegetable soup",
     category: "Soup",
     price: "1.80",
+    kcal: 244,
     currency: "EUR",
     price_options: [{ label: null, amount: "1.80", currency: "EUR" }],
     allergens: ["A", "C", "G"],
@@ -22,6 +23,7 @@ const DISHES = [
     name: "Potato and pepper pot | Fried Egg | Farmhouse bread",
     category: "Main",
     price: "9.25",
+    kcal: 890,
     currency: "EUR",
     price_options: [
       { label: null, amount: "9.25", currency: "EUR" },
@@ -35,6 +37,7 @@ const DISHES = [
     name: "Chunky Korma | Soy | Red Curry | Ginger | Coconut Milk | Basmati rice",
     category: "Main",
     price: "8.50",
+    kcal: 640,
     currency: "EUR",
     price_options: [{ label: null, amount: "8.50", currency: "EUR" }],
     allergens: ["E", "H"],

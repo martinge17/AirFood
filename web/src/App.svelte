@@ -66,6 +66,11 @@
     return Number.isFinite(value) ? value : Infinity;
   }
 
+  function kcalOf(meal) {
+    const value = parseFloat(meal.kcal);
+    return Number.isFinite(value) ? value : Infinity;
+  }
+
   // little "contains" sticker: portal tags first (Vegan/Vegetarian), else keyword scan
   const MEAT_WORDS = ["pork", "beef", "chicken", "turkey", "lamb", "gyros", "kebab", "hackfleisch", "rind", "schwein", "hähnchen", "pute", "lamm", "fleisch", "bratwurst", "currywurst", "speck", "bacon", "ham", "schinken", "cevapcici", "leberkäs", "steak", "schnitzel", "wurst", "ente", "duck", "gans", "venison", "salami", "frikadelle", "bulette", "ribs", "hacksteak"];
   const FISH_WORDS = ["fish", "fisch", "lachs", "salmon", "pollock", "forelle", "trout", "tuna", "thunfisch", "garnelen", "shrimp", "scampi", "garnele", "krabben", "matjes", "hering", "kabeljau", "cod", "seelachs", "calamari", "tintenfisch", "muscheln", "aal"];
@@ -214,12 +219,13 @@
   $: activeDays = weekOfSelected != null && menusByWeek[weekOfSelected] ? menusByWeek[weekOfSelected].days : [];
   $: activeDay = selectedIso ? dateToWeekday.get(selectedIso) : null;
   $: activeMeals = activeDays.find((d) => d.weekday === activeDay)?.meals ?? [];
-  $: sortedMeals =
-    sortBy === "default"
-      ? activeMeals
-      : [...activeMeals].sort((a, b) =>
-          sortBy === "price-asc" ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a)
-        );
+  $: sortedMeals = [...activeMeals].sort((a, b) => {
+    if (sortBy === "price-asc") return priceOf(a) - priceOf(b);
+    if (sortBy === "price-desc") return priceOf(b) - priceOf(a);
+    if (sortBy === "kcal-asc") return kcalOf(a) - kcalOf(b);
+    if (sortBy === "kcal-desc") return kcalOf(b) - kcalOf(a);
+    return 0;
+  });
   $: filterOptions = [
     "all",
     ...["Vegan", "Veg", "Meat", "Fish"].filter((f) =>
@@ -318,6 +324,8 @@
           <option value="default">Menu order</option>
           <option value="price-asc">Price: low to high</option>
           <option value="price-desc">Price: high to low</option>
+          <option value="kcal-asc">Calories: low to high</option>
+          <option value="kcal-desc">Calories: high to low</option>
         </select>
       </label>
       <button class="filter-btn" class:open={filtersOpen} on:click={() => (filtersOpen = !filtersOpen)} aria-expanded={filtersOpen}>
@@ -360,6 +368,7 @@
               {/if}
               <p class="meta">
                 {#if meal.store}<span class="store-chip">{meal.store}</span>{/if}
+                {#if meal.kcal != null}<span class="kcal">{meal.kcal} kcal</span>{/if}
                 {#if meal.category}<span class="cat">{meal.category}</span>{/if}
                 {#if meal.allergens?.length}<span class="all">Allergens {meal.allergens.join(" ")}</span>{/if}
                 {#each meal.tags ?? [] as t}
@@ -514,6 +523,7 @@
   .cat { font-weight: 600; color: #1e5c48; }
   .tag { border: 1px solid #d8d3c8; border-radius: 1rem; padding: .05rem .5rem; color: #2b2724; }
   .store-chip { border: 1px solid #1e5c48; color: #1e5c48; border-radius: 1rem; padding: .05rem .5rem; font-weight: 600; }
+  .kcal { border: 1px solid #d8d3c8; border-radius: 1rem; padding: .05rem .5rem; color: #c2410c; font-weight: 700; font-variant-numeric: tabular-nums; }
   .sticker {
     display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .04em;
     border-radius: .35rem; padding: .12rem .45rem;

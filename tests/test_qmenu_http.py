@@ -166,6 +166,7 @@ def test_fetch_menu_maps_week_doc(monkeypatch):
     assert meal["allergens"] == ["A"]
     assert meal["tags"] == [{"name": "Vegetarian", "image_url": "https://files.qnips.com/veg.png"}]
     assert meal["image_url"] == "https://files.qnips.com/Minestrone.png"
+    assert meal["kcal"] is None  # fixture product has no NutritionFacts
 
 
 def test_fetch_menu_day_filter(monkeypatch):
@@ -183,6 +184,14 @@ def test_fetch_menu_day_filter(monkeypatch):
     absent = calendar.day_name[(today() + timedelta(days=2)).weekday()]  # not today or tomorrow
     with pytest.raises(ValueError):
         qmenu_http.fetch_menu(store, week=45, day=absent)
+
+
+def test_kcal_prefers_serving_then_per100():
+    with_serving = {"NutritionFacts": fs_map({"KCalPer100": fs_int(100), "KCalPerServing": fs_int(400)})}
+    assert qmenu_http._kcal(with_serving) == 400.0
+    only_100 = {"NutritionFacts": fs_map({"KCalPer100": fs_int(100)})}
+    assert qmenu_http._kcal(only_100) == 100.0
+    assert qmenu_http._kcal({}) is None
 
 
 def test_fetch_menu_unknown_week_is_client_error(monkeypatch):

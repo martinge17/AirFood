@@ -228,12 +228,23 @@ def _prices(product: dict) -> list[dict]:
     return result
 
 
+def _kcal(product: dict) -> float | None:
+    facts = product.get("NutritionFacts", {}).get("mapValue", {}).get("fields", {})
+    for key in ("KCalPerServing", "KCalPer100"):
+        value = facts.get(key, {})
+        number = value.get("integerValue") or value.get("doubleValue")
+        if number is not None:
+            return float(number)
+    return None
+
+
 def _meal(product: dict, category: str, week_fields: dict) -> dict:
     prices = _prices(product)
     tags = product.get("CustomTags", {}).get("arrayValue", {}).get("values", [])
     return {
         "id": (product.get("Id") or {}).get("integerValue"),
         "name": product.get("Name", {}).get("stringValue"),
+        "kcal": _kcal(product),
         "category": category,
         "price": prices[0]["amount"] if prices else None,
         "currency": prices[0]["currency"] if prices else None,

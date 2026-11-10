@@ -2,8 +2,7 @@
 # airfood.onrender.com/        -> PWA (served by the API container)
 # airfood.onrender.com/api/*   -> JSON API
 # airfood.onrender.com/health  -> health check (Uptime Kuma target)
-# airfood.onrender.com/docs    -> Swagger UI
-# airfood.onrender.com/redoc   -> ReDoc API documentation
+# airfood.onrender.com/docs    -> Swagger UI API documentation
 services:
   - type: web
     name: airfood

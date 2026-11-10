@@ -385,7 +385,7 @@
 
   <footer>
     <p>Prices in EUR · allergen codes as shown on the portal</p>
-    <a class="docs" href="/redoc">API documentation</a>
+    <a class="docs" href="/docs">API documentation</a>
   </footer>
 
   {#if detail}

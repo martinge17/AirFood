@@ -6,7 +6,12 @@ from fastapi.staticfiles import StaticFiles
 
 from qmenu_http import STORES, ScrapeError, fetch_menu, fetch_product, normalize_day
 
-app = FastAPI(title="AirFood", description="Aramark menu data via the reverse-engineered HTTP API", version="0.3.0")
+app = FastAPI(
+    title="AirFood",
+    description="Aramark menu data via the reverse-engineered HTTP API",
+    version="0.3.0",
+    redoc_url=None,  # one doc page: Swagger UI at /docs
+)
 # read-only public menu API; needed when the PWA is hosted separately (e.g. GitHub Pages)
 app.add_middleware(
     CORSMiddleware,

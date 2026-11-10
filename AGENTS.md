@@ -40,7 +40,7 @@ cd web && npm run dev                    # PWA dev server on :5173, proxies /api
 
 ## Deploy
 
-- Render: New -> Blueprint -> this repo -> `render.yaml` (service `airfood`, region frankfurt). One URL serves `/` (PWA), `/api/*`, `/redoc`, `/docs`, `/health`.
+- Render: New -> Blueprint -> this repo -> `render.yaml` (service `airfood`, region frankfurt). One URL serves `/` (PWA), `/api/*`, `/docs`, `/health`.
 - Keep the free instance warm: Uptime Kuma monitor on `https://<service>.onrender.com/health`, every 5-10 min.
 - Demo without API: branch `ghpages` builds `web/` with `VITE_USE_MOCK=true` and deploys to GitHub Pages via its own workflow.
 - CORS: default `*`; tighten with `CORS_ORIGINS` when final domains are known.
